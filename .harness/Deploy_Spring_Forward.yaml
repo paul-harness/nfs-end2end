@@ -1,0 +1,162 @@
+pipeline:
+    name: Deploy Spring Forward
+    identifier: Deploy_Spring_Forward
+    allowStageExecutions: false
+    projectIdentifier: Spring_Forward
+    orgIdentifier: default
+    tags: {}
+    stages:
+        - stage:
+              name: Deploy
+              identifier: Deploy
+              description: ""
+              type: Deployment
+              spec:
+                  serviceConfig:
+                      serviceRef: Spring_Forward
+                      serviceDefinition:
+                          type: Kubernetes
+                          spec:
+                              variables: []
+                              manifests:
+                                  - manifest:
+                                        identifier: helm_chart_spring_forward
+                                        type: HelmChart
+                                        spec:
+                                            store:
+                                                type: Github
+                                                spec:
+                                                    connectorRef: githubsuranc
+                                                    gitFetchType: Branch
+                                                    folderPath: helm-chart/
+                                                    repoName: spring-forward-harness-example
+                                                    branch: master
+                                            skipResourceVersioning: false
+                                            helmVersion: V3
+                                  - manifest:
+                                        identifier: spring_forward_pr_values
+                                        type: Values
+                                        spec:
+                                            store:
+                                                type: Github
+                                                spec:
+                                                    connectorRef: githubsuranc
+                                                    gitFetchType: Branch
+                                                    paths:
+                                                        - helm-chart/values.yaml
+                                                    repoName: spring-forward-harness-example
+                                                    branch: master
+                              artifacts:
+                                  primary:
+                                      spec:
+                                          connectorRef: dockergithubsuranc
+                                          imagePath: ghcr.io/suranc/spring-forward-harness-example
+                                          tag: <+input>
+                                      type: DockerRegistry
+                  infrastructure:
+                      environmentRef: Dev
+                      infrastructureDefinition:
+                          type: KubernetesDirect
+                          spec:
+                              connectorRef: springforwardk8sconnector
+                              namespace: chris-deploy-dev
+                              releaseName: r-<+INFRA_KEY>
+                      allowSimultaneousDeployments: false
+                  execution:
+                      steps:
+                          - stepGroup:
+                                name: Canary Deployment
+                                identifier: canaryDepoyment
+                                steps:
+                                    - step:
+                                          name: Canary Deployment
+                                          identifier: canaryDeployment
+                                          type: K8sCanaryDeploy
+                                          timeout: 10m
+                                          spec:
+                                              instanceSelection:
+                                                  type: Count
+                                                  spec:
+                                                      count: 1
+                                              skipDryRun: false
+                                    - step:
+                                          type: HarnessApproval
+                                          name: Approve Canary Validation
+                                          identifier: Approve_Canary_Validation
+                                          spec:
+                                              approvalMessage: Please review the following information and approve the pipeline progression
+                                              includePipelineExecutionHistory: true
+                                              approvers:
+                                                  userGroups:
+                                                      - account.Company_Wide_Approvers
+                                                  minimumCount: 1
+                                                  disallowPipelineExecutor: false
+                                              approverInputs:
+                                                  - name: Canary Validation
+                                                    defaultValue: ""
+                                          timeout: 1d
+                                    - step:
+                                          name: Canary Delete
+                                          identifier: canaryDelete
+                                          type: K8sCanaryDelete
+                                          timeout: 10m
+                                          spec: {}
+                                rollbackSteps:
+                                    - step:
+                                          name: Canary Delete
+                                          identifier: rollbackCanaryDelete
+                                          type: K8sCanaryDelete
+                                          timeout: 10m
+                                          spec: {}
+                          - stepGroup:
+                                name: Primary Deployment
+                                identifier: primaryDepoyment
+                                steps:
+                                    - step:
+                                          name: Rolling Deployment
+                                          identifier: rollingDeployment
+                                          type: K8sRollingDeploy
+                                          timeout: 10m
+                                          spec:
+                                              skipDryRun: false
+                                rollbackSteps:
+                                    - step:
+                                          name: Rolling Rollback
+                                          identifier: rollingRollback
+                                          type: K8sRollingRollback
+                                          timeout: 10m
+                                          spec: {}
+                          - step:
+                                type: ShellScript
+                                name: Sleep
+                                identifier: Sleep
+                                spec:
+                                    shell: Bash
+                                    onDelegate: true
+                                    source:
+                                        type: Inline
+                                        spec:
+                                            script: sleep 100
+                                    environmentVariables: []
+                                    outputVariables: []
+                                    executionTarget: {}
+                                timeout: 10m
+                          - step:
+                                type: K8sDelete
+                                name: Delete Release
+                                identifier: Delete_Release
+                                spec:
+                                    deleteResources:
+                                        type: ReleaseName
+                                        spec:
+                                            deleteNamespace: false
+                                timeout: 10m
+                      rollbackSteps: []
+                  serviceDependencies: []
+              tags: {}
+              failureStrategies:
+                  - onFailure:
+                        errors:
+                            - AllErrors
+                        action:
+                            type: StageRollback

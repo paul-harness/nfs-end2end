@@ -1,0 +1,61 @@
+pipeline:
+  name: Scan Code
+  identifier: Scan_Code
+  projectIdentifier: Spring_Forward
+  orgIdentifier: default
+  tags: {}
+  properties:
+    ci:
+      codebase:
+        connectorRef: githubsuranc
+        repoName: spring-forward-harness-example
+        build: <+input>
+  stages:
+    - stage:
+        name: Build and Scan Image
+        identifier: Build_and_Scan_Image
+        description: ""
+        type: CI
+        spec:
+          cloneCodebase: true
+          infrastructure:
+            type: KubernetesDirect
+            spec:
+              connectorRef: springforwardk8sconnector
+              namespace: chris-builds
+              automountServiceAccountToken: true
+              nodeSelector: {}
+              os: Linux
+          execution:
+            steps:
+              - step:
+                  type: BuildAndPushDockerRegistry
+                  name: Build Image
+                  identifier: Build_Dockerfile_Put_Jar_in_workspace
+                  spec:
+                    connectorRef: dockergithubsuranc
+                    repo: ghcr.io/suranc/spring-forward-harness-example
+                    tags:
+                      - scan-code
+                  failureStrategies: []
+              - step:
+                  type: Run
+                  name: Put Jar in workspace
+                  identifier: Build_Image
+                  spec:
+                    connectorRef: account.harnessImage
+                    image: ghcr.io/suranc/spring-forward-harness-example
+                    shell: Sh
+                    command: |-
+                      mkdir build-output
+                      cp /app/spring-forward-0.0.1-SNAPSHOT.jar ./build-output/
+                  failureStrategies: []
+              - step:
+                  type: Run
+                  name: Scan Image
+                  identifier: Scan_Image
+                  spec:
+                    connectorRef: account.harnessImage
+                    image: alpine
+                    shell: Sh
+                    command: du -sh build-output/*.jar
