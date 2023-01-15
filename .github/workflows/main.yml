@@ -14,3 +14,4 @@ jobs:
         with:
           push: true
           tags: psuholet/nfs_demo:latest
+          build-args: "FF_API_KEY=${{ secrets.FF_API_KEY }}"
