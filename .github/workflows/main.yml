@@ -25,3 +25,6 @@ jobs:
           push: true
           tags: psuholet/nfs-demo:latest
           build-args: "FF_API_KEY=${{ secrets.FF_API_KEY }}"
+          
+    - name: Execute Harness Pipeline
+      run: curl -X POST -H 'content-type: application/json' -H 'X-Api-Key: pat.6_vVHzo9Qeu9fXvj-AcbCQ.63c8478c099f852829815748.RAV7DfwC4bEsTLSjWlFa' --url 'https://app.harness.io/gateway/pipeline/api/webhook/custom/v2?accountIdentifier=6_vVHzo9Qeu9fXvj-AcbCQ&orgIdentifier=SE_Sandbox&projectIdentifier=paul&pipelineIdentifier=paulnsfdemo&triggerIdentifier=from_Github' -d '{"sample_key": "sample_value"}'
