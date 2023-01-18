@@ -19,9 +19,9 @@ public class AboutController {
 		* the featureFlag
 		*/
 		final Target target = Target.builder()
-                    .identifier("Test")
-                    .name("Test")
-                    .attribute("location", "test env")
+                    .identifier("Test_Paul")
+                    .name("Test_Paul")
+                    .attribute("location", "paul test env")
                     .build();
 
 		Boolean ABOUT_PAGE = null;
